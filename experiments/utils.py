@@ -8,13 +8,14 @@ import json
 import torch
 import torch.utils.data as data
 import pytorch_lightning as pl 
-from pytorch_lightning.callbacks import ModelCheckpoint, GPUStatsMonitor
+from pytorch_lightning.callbacks import ModelCheckpoint  #, GPUStatsMonitor
 from shutil import copyfile
 from copy import copy
 
 import sys
 sys.path.append('../')
-from experiments.datasets import BallInBoxesDataset, InterventionalPongDataset, Causal3DDataset, VoronoiDataset, PinballDataset
+from crc.baselines.citris.experiments.datasets import BallInBoxesDataset, \
+    InterventionalPongDataset, Causal3DDataset, VoronoiDataset, PinballDataset
 
 def get_device():
     return torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
@@ -43,26 +44,27 @@ def get_default_parser():
     parser.add_argument('--files_to_save', type=str, nargs='+', default='')
     return parser
 
-def load_datasets(args):
-    pl.seed_everything(args.seed)
+def load_datasets(seed, data_dir, seq_len, batch_size, num_workers, args=None,
+                  exclude_objects=None):
+    pl.seed_everything(seed)
     print('Loading datasets...')
-    if 'ball_in_boxes' in args.data_dir:
+    if 'ball_in_boxes' in data_dir:
         data_name = 'ballinboxes'
         DataClass = BallInBoxesDataset
         dataset_args = {}
         test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
-    elif 'pong' in args.data_dir:
+    elif 'pong' in data_dir:
         data_name = 'pong'
         DataClass = InterventionalPongDataset
         dataset_args = {}
         test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
-    elif 'causal3d' in args.data_dir:
+    elif 'causal3d' in data_dir:
         data_name = 'causal3d'
         DataClass = Causal3DDataset
         dataset_args = {'coarse_vars': args.coarse_vars, 'exclude_vars': args.exclude_vars, 'exclude_objects': args.exclude_objects}
         test_args = lambda train_set: {'causal_vars': train_set.full_target_names}
-    elif 'voronoi' in args.data_dir:
-        extra_name = args.data_dir.split('voronoi')[-1]
+    elif 'voronoi' in data_dir:
+        extra_name = data_dir.split('voronoi')[-1]
         if extra_name[-1] == '/':
             extra_name = extra_name[:-1]
         extra_name = extra_name.replace('/', '_')
@@ -70,42 +72,42 @@ def load_datasets(args):
         DataClass = VoronoiDataset
         dataset_args = {}
         test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
-    elif 'pinball' in args.data_dir:
-        data_name = 'pinball' + args.data_dir.split('pinball')[-1].replace('/','')
+    elif 'pinball' in data_dir:
+        data_name = 'pinball' + data_dir.split('pinball')[-1].replace('/','')
         DataClass = PinballDataset
         dataset_args = {}
         test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
     else:
-        assert False, f'Unknown data class for {args.data_dir}'
+        assert False, f'Unknown data class for {data_dir}'
     train_dataset = DataClass(
-        data_folder=args.data_dir, split='train', single_image=False, triplet=False, seq_len=args.seq_len, **dataset_args)
+        data_folder=data_dir, split='train', single_image=False, triplet=False, seq_len=seq_len, **dataset_args)
     val_dataset = DataClass(
-        data_folder=args.data_dir, split='val_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
+        data_folder=data_dir, split='val_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
     val_triplet_dataset = DataClass(
-        data_folder=args.data_dir, split='val', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
+        data_folder=data_dir, split='val', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
     test_dataset = DataClass(
-        data_folder=args.data_dir, split='test_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
+        data_folder=data_dir, split='test_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
     test_triplet_dataset = DataClass(
-        data_folder=args.data_dir, split='test', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
-    if args.exclude_objects is not None and data_name == 'causal3d':
+        data_folder=data_dir, split='test', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
+    if exclude_objects is not None and data_name == 'causal3d':
         test_dataset = {
-            'orig_wo_' + '_'.join([str(o) for o in args.exclude_objects]): test_dataset
+            'orig_wo_' + '_'.join([str(o) for o in exclude_objects]): test_dataset
         }
         val_dataset = {
             next(iter(test_dataset.keys())): val_dataset 
         }
         dataset_args.pop('exclude_objects')
-        for o in args.exclude_objects:
+        for o in exclude_objects:
             val_dataset[f'exclusive_obj_{o}'] = DataClass(
-                                data_folder=args.data_dir, split='val_indep', single_image=True, triplet=False, return_latents=True, exclude_objects=[i for i in range(7) if i != o], **dataset_args, **test_args(train_dataset))
+                                data_folder=data_dir, split='val_indep', single_image=True, triplet=False, return_latents=True, exclude_objects=[i for i in range(7) if i != o], **dataset_args, **test_args(train_dataset))
             test_dataset[f'exclusive_obj_{o}'] = DataClass(
-                                data_folder=args.data_dir, split='test_indep', single_image=True, triplet=False, return_latents=True, exclude_objects=[i for i in range(7) if i != o], **dataset_args, **test_args(train_dataset))
-    train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size,
-                                   shuffle=True, pin_memory=True, drop_last=True, num_workers=args.num_workers)
-    val_triplet_loader = data.DataLoader(val_triplet_dataset, batch_size=args.batch_size,
-                                  shuffle=False, drop_last=False, num_workers=args.num_workers)
-    test_triplet_loader = data.DataLoader(test_triplet_dataset, batch_size=args.batch_size,
-                                  shuffle=False, drop_last=False, num_workers=args.num_workers)
+                                data_folder=data_dir, split='test_indep', single_image=True, triplet=False, return_latents=True, exclude_objects=[i for i in range(7) if i != o], **dataset_args, **test_args(train_dataset))
+    train_loader = data.DataLoader(train_dataset, batch_size=batch_size,
+                                   shuffle=True, pin_memory=True, drop_last=True, num_workers=num_workers)
+    val_triplet_loader = data.DataLoader(val_triplet_dataset, batch_size=batch_size,
+                                  shuffle=False, drop_last=False, num_workers=num_workers)
+    test_triplet_loader = data.DataLoader(test_triplet_dataset, batch_size=batch_size,
+                                  shuffle=False, drop_last=False, num_workers=num_workers)
 
     print(f'Training dataset size: {len(train_dataset)} / {len(train_loader)}')
     print(f'Val triplet dataset size: {len(val_triplet_dataset)} / {len(val_triplet_loader)}')
@@ -165,11 +167,15 @@ def train_model(model_class, train_loader, val_loader,
     trainer_args = {}
     if root_dir is None or root_dir == '':
         root_dir = os.path.join('checkpoints/', model_class.__name__)
-    if not (logger_name is None or logger_name == ''):
+    if not (logger_name is None or logger_name == ''):  # TODO: pass wandblogger here
         logger_name = logger_name.split('/')
-        logger = pl.loggers.TensorBoardLogger(root_dir, 
-                                              name=logger_name[0], 
+        logger = pl.loggers.TensorBoardLogger(root_dir,
+                                              name=logger_name[0],
                                               version=logger_name[1] if len(logger_name) > 1 else None)
+        # Wandb logger
+        # logger = pl.loggers.WandbLogger(save_dir=root_dir,
+        #                                 name=logger_name[0],  # TODO: this is a different variable in wandb
+        #                                 version=logger_name[1] if len(logger_name) > 1 else None)
         trainer_args['logger'] = logger
     if progress_bar_refresh_rate == 0:
         trainer_args['enable_progress_bar'] = False
@@ -189,7 +195,8 @@ def train_model(model_class, train_loader, val_loader,
     if debug:
         torch.autograd.set_detect_anomaly(True) 
     trainer = pl.Trainer(default_root_dir=root_dir,
-                         gpus=1 if torch.cuda.is_available() else 0,
+                         accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+                         # gpus=1 if torch.cuda.is_available() else 0,  # TODO: see if we have to change this for mps
                          max_epochs=max_epochs,
                          callbacks=callbacks,
                          check_val_every_n_epoch=check_val_every_n_epoch,
@@ -198,7 +205,8 @@ def train_model(model_class, train_loader, val_loader,
     trainer.logger._default_hp_metric = None
 
     if files_to_save is not None:
-        log_dir = trainer.logger.log_dir
+        # log_dir = trainer.logger.log_dir
+        log_dir = trainer.logger.save_dir
         os.makedirs(log_dir, exist_ok=True)
         for file in files_to_save:
             if os.path.isfile(file):
@@ -209,8 +217,12 @@ def train_model(model_class, train_loader, val_loader,
                 print(f'=> File not found: {file}')
 
     # Check whether pretrained model exists. If yes, load it and skip training
+    # TODO: might have to change this path to our convention
     pretrained_filename = os.path.join(
         'checkpoints/', model_class.__name__ + ".ckpt")
+    # Maybe:
+    # pretrained_filename = os.path.join()
+
     if load_pretrained and os.path.isfile(pretrained_filename):
         print("Found pretrained model at %s, loading..." % pretrained_filename)
         # Automatically loads the model with the saved hyperparameters
@@ -244,6 +256,8 @@ def train_model(model_class, train_loader, val_loader,
                 print(key + ':', test_result[key])
             print('='*50)
 
-            log_file = os.path.join(trainer.logger.log_dir, f'test_results_{prefix}.json')
+            # log_file = os.path.join(trainer.logger.log_dir, f'test_results_{prefix}.json')
+            log_file = os.path.join(trainer.logger.save_dir,
+                                    f'test_results_{prefix}.json')
             with open(log_file, 'w') as f:
                 json.dump(test_result, f, indent=4)

@@ -10,7 +10,7 @@ import scipy.linalg
 
 import sys
 sys.path.append('../../')
-from models.shared import AutoregLinear
+from crc.baselines.citris.models.shared import AutoregLinear
 
 
 class AutoregNormalizingFlow(nn.Module):

@@ -11,8 +11,8 @@ from collections import OrderedDict, defaultdict
 
 import sys
 sys.path.append('../')
-from models.shared import CosineWarmupScheduler, SineWarmupScheduler, get_act_fn, log_dict, Encoder, Decoder, SimpleEncoder, SimpleDecoder, TransitionPrior, TargetClassifier, CausalEncoder, ImageLogCallback, CorrelationMetricsLogCallback
-from models.shared import AutoregNormalizingFlow, gaussian_log_prob
+from crc.baselines.citris.models.shared import CosineWarmupScheduler, SineWarmupScheduler, get_act_fn, log_dict, Encoder, Decoder, SimpleEncoder, SimpleDecoder, TransitionPrior, TargetClassifier, CausalEncoder, ImageLogCallback, CorrelationMetricsLogCallback
+from crc.baselines.citris.models.shared import AutoregNormalizingFlow, gaussian_log_prob
 
 
 class CITRISVAE(pl.LightningModule):
@@ -354,9 +354,9 @@ class CITRISVAE(pl.LightningModule):
         loss = self.triplet_evaluation(batch, mode='test')
         self.log('test_loss', loss)
 
-    def validation_epoch_end(self, *args, **kwargs):
+    def on_validation_epoch_end(self, *args, **kwargs):
         # Logging at the end of validation
-        super().validation_epoch_end(*args, **kwargs)
+        super().on_validation_epoch_end(*args, **kwargs)
         if len(self.all_val_dists.keys()) > 0:
             if self.current_epoch > 0:
                 means = {}

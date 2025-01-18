@@ -6,8 +6,8 @@ from tqdm.auto import tqdm
 
 import sys
 sys.path.append('../../')
-from models.shared.modules import CosineWarmupScheduler, MultivarLinear
-from models.shared.utils import gaussian_log_prob
+from crc.baselines.citris.models.shared.modules import CosineWarmupScheduler, MultivarLinear
+from crc.baselines.citris.models.shared.utils import gaussian_log_prob
 
 
 class ENCOGraphLearning:

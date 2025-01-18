@@ -15,10 +15,10 @@ from scipy.stats import spearmanr
 
 import sys
 sys.path.append('../../')
-from models.shared.visualization import visualize_reconstruction, plot_target_assignment, plot_target_classification, visualize_triplet_reconstruction, visualize_graph, plot_latents_mutual_information
-from models.shared.utils import log_matrix, log_dict, evaluate_adj_matrix
-from models.shared.causal_encoder import CausalEncoder
-from models.shared.enco import ENCOGraphLearning
+from crc.baselines.citris.models.shared.visualization import visualize_reconstruction, plot_target_assignment, plot_target_classification, visualize_triplet_reconstruction, visualize_graph, plot_latents_mutual_information
+from crc.baselines.citris.models.shared.utils import log_matrix, log_dict, evaluate_adj_matrix
+from crc.baselines.citris.models.shared.causal_encoder import CausalEncoder
+from crc.baselines.citris.models.shared.enco import ENCOGraphLearning
 
 
 class ImageLogCallback(pl.Callback):
@@ -185,9 +185,13 @@ class CorrelationMetricsLogCallback(pl.Callback):
 
     def train_network(self, pl_module, train_dataset, target_assignment):
         device = pl_module.device
-        if hasattr(pl_module, 'causal_encoder'):
+        # if hasattr(pl_module, 'causal_encoder'):
+        #     causal_var_info = pl_module.causal_encoder.hparams.causal_var_info
+        # else:
+        #     causal_var_info = pl_module.hparams.causal_var_info
+        try:
             causal_var_info = pl_module.causal_encoder.hparams.causal_var_info
-        else:
+        except AttributeError:
             causal_var_info = pl_module.hparams.causal_var_info
         # We use one, sufficiently large network that predicts for any input all causal variables
         # To iterate over the different sets, we use a mask which is an extra input to the model
@@ -218,7 +222,11 @@ class CorrelationMetricsLogCallback(pl.Callback):
                     inps, latents = self._prepare_input(inps, target_assignment, latents)
                     loss = encoder._get_loss([inps, latents], mode=None)
                     optimizer.zero_grad()
-                    loss.backward()
+                    try:
+                        loss.backward()
+                    except RuntimeError:
+                        loss.requires_grad = True
+                        loss.backward()
                     optimizer.step()
                     avg_loss += loss.item()
         return encoder
@@ -260,8 +268,8 @@ class CorrelationMetricsLogCallback(pl.Callback):
             r2_matrix.append(r2)
         r2_matrix = torch.stack(r2_matrix, dim=-1).cpu().numpy()
         log_matrix(r2_matrix, trainer, 'r2_matrix' + self.log_postfix)
-        self._log_heatmap(trainer=trainer, 
-                          values=r2_matrix, 
+        self._log_heatmap(trainer=trainer,
+                          values=r2_matrix,
                           tag='r2_matrix',
                           title='R^2 Matrix',
                           xticks=[key for key in encoder.hparams.causal_var_info],
@@ -300,8 +308,8 @@ class CorrelationMetricsLogCallback(pl.Callback):
             pearson_matrix.append(p)
         pearson_matrix = torch.stack(pearson_matrix, dim=-1).cpu().numpy()
         log_matrix(pearson_matrix, trainer, 'pearson_matrix' + self.log_postfix)
-        self._log_heatmap(trainer=trainer, 
-                          values=pearson_matrix, 
+        self._log_heatmap(trainer=trainer,
+                          values=pearson_matrix,
                           tag='pearson_matrix',
                           title='Pearson Matrix',
                           xticks=[key for key in encoder.hparams.causal_var_info],
@@ -345,8 +353,8 @@ class CorrelationMetricsLogCallback(pl.Callback):
         
         spearman_matrix = torch.stack(spearman_matrix, dim=-1).cpu().numpy()
         log_matrix(spearman_matrix, trainer, 'spearman_matrix' + self.log_postfix)
-        self._log_heatmap(trainer=trainer, 
-                          values=spearman_matrix, 
+        self._log_heatmap(trainer=trainer,
+                          values=spearman_matrix,
                           tag='spearman_matrix',
                           title='Spearman\'s Rank Correlation Matrix',
                           xticks=[key for key in encoder.hparams.causal_var_info],

@@ -6,8 +6,8 @@ from copy import deepcopy
 
 import sys
 sys.path.append('../../')
-from models.shared.utils import kl_divergence, gaussian_log_prob
-from models.shared.modules import MultivarLinear, AutoregLinear
+from crc.baselines.citris.models.shared.utils import kl_divergence, gaussian_log_prob
+from crc.baselines.citris.models.shared.modules import MultivarLinear, AutoregLinear
 
 
 

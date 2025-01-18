@@ -1,1 +1,1 @@
-from models.citris_vae.lightning_module import CITRISVAE
+from crc.baselines.citris.models.citris_vae.lightning_module import CITRISVAE

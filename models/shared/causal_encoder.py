@@ -9,9 +9,9 @@ from collections import OrderedDict, defaultdict
 
 import sys
 sys.path.append('../../')
-from models.shared.modules import CosineWarmupScheduler, TanhScaled
-from models.shared.encoder_decoder import Encoder
-from models.shared.utils import get_act_fn
+from crc.baselines.citris.models.shared.modules import CosineWarmupScheduler, TanhScaled
+from crc.baselines.citris.models.shared.encoder_decoder import Encoder
+from crc.baselines.citris.models.shared.utils import get_act_fn
 
 
 class CausalEncoder(pl.LightningModule):
