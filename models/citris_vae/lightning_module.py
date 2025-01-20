@@ -345,13 +345,19 @@ class CITRISVAE(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        imgs, *_ = batch
-        loss = self.triplet_evaluation(batch, mode='val')
+        # imgs, *_ = batch
+        # loss = self.triplet_evaluation(batch, mode='val')
+
+        # Using same loss as training for chambers
+        loss = self._get_loss(batch, mode='val')
         self.log('val_loss', loss)
 
     def test_step(self, batch, batch_idx):
-        imgs, *_ = batch
-        loss = self.triplet_evaluation(batch, mode='test')
+        # imgs, *_ = batch
+        # loss = self.triplet_evaluation(batch, mode='test')
+
+        # Using same loss as training for chambers
+        loss = self._get_loss(batch, mode='test')
         self.log('test_loss', loss)
 
     def on_validation_epoch_end(self, *args, **kwargs):

@@ -2,6 +2,8 @@
 PyTorch dataset classes for loading the datasets.
 """
 
+from causalchamber.datasets import Dataset as ChamberData
+from skimage import io
 import torch
 import torch.utils.data as data
 import torch.nn.functional as F
@@ -11,6 +13,133 @@ import json
 import numpy as np
 from collections import OrderedDict
 from tqdm.auto import tqdm
+
+
+class ChambersDataset(data.Dataset):
+    VAR_INFO = OrderedDict({
+        'red': 'continuous_1',
+        'green': 'continuous_1',
+        'blue': 'continuous_1',
+        'pol_1': 'continuous_1',  # TODO: check if the polarizers should be classified as angles! Probably also need to rescale them to [0, 2pi] then!
+        'pol_2': 'continuous_1'
+    })
+
+    def __init__(self, dataset, data_root, single_image=False, seq_len=2, return_latents=False):
+        super().__init__()
+
+        self.triplet = False  # not used in this dataset
+
+        chamber_data = ChamberData(name=dataset,
+                                   root=data_root,
+                                   download=True)
+
+        ### Dummy dataset atm, make sure to use the correct one later!
+        self.data_df = chamber_data.get_experiment(
+            name='scm_2_reference').as_pandas_dataframe()[:1000]  # TODO: use whole dataset!
+
+        self.base_img_path = os.path.join(data_root, dataset, 'scm_2_reference',
+                                          'images_64')
+        self.features = ['red', 'green', 'blue', 'pol_1', 'pol_2']
+
+        latents = self.data_df[self.features].to_numpy()
+        latents = (latents - np.mean(latents, axis=0, keepdims=True)) / np.std(latents, axis=0, keepdims=True)
+        self.latents = torch.as_tensor(latents, dtype=torch.float32)
+        self.targets = np.zeros(shape=(len(self.data_df), 5))  # Intervention targets, TODO: actually get the real ones!
+        self.target_names_l = ['red', 'green', 'blue', 'pol_1', 'pol_2']
+
+        self.single_image = single_image
+        self.return_latents = return_latents
+        self.seq_len = seq_len if not (single_image or self.triplet) else 1
+        self.encodings_active = False
+
+    @torch.no_grad()
+    def encode_dataset(self, encoder, batch_size=512):
+        device = torch.device(
+            'cuda:0') if torch.cuda.is_available() else torch.device('cpu')
+        encoder.eval()
+        encoder.to(device)
+        encodings = None
+        for idx in tqdm(range(0, len(self.data_df), batch_size), desc='Encoding dataset...', leave=False):
+            # batch = self.imgs[idx:idx+batch_size].to(device)
+            # Load batch_size number of images
+            batch = None
+            batch = self._prepare_imgs(batch)
+            if len(batch.shape) == 5:
+                batch = batch.flatten(0, 1)
+            batch = encoder(batch)
+            if len(self.imgs.shape) == 5:
+                batch = batch.unflatten(0, (-1, self.imgs.shape[1]))
+            batch = batch.detach().cpu()
+            if encodings is None:
+                encodings = torch.zeros(len(self.data_df) + batch.shape[-1:], dtype=batch.dtype, device='cpu')
+            encodings[idx:idx + batch_size] = batch
+            self.imgs = encodings
+            self.encodings_active = True
+            raise ArithmeticError  # TODO: hook to see if we actually need this somewhere!!
+            return encodings
+
+    def _prepare_imgs(self, imgs):
+        if self.encodings_active:
+            return imgs
+        else:
+            imgs = imgs.float() / 255.0
+            imgs = imgs * 2.0 - 1.0
+            return imgs
+
+    def get_img_width(self):
+        return 64
+
+    def num_vars(self):
+        return self.targets.shape[-1]
+
+    def get_inp_channels(self):
+        return 3
+
+    def target_names(self):
+        return self.target_names_l
+
+    def get_causal_var_info(self):
+        return ChambersDataset.VAR_INFO
+
+    def __len__(self):
+        return len(self.data_df) - 1
+
+    def __getitem__(self, item):
+        returns = []
+
+        img_1_path = os.path.join(self.base_img_path,
+                                  self.data_df['image_file'].iloc[item])
+        img_1 = torch.as_tensor(io.imread(img_1_path), dtype=torch.float32)
+        img_2_path = os.path.join(self.base_img_path,
+                                  self.data_df['image_file'].iloc[item+1])
+        img_2 = torch.as_tensor(io.imread(img_2_path), dtype=torch.float32)
+
+        img_pair = torch.stack((img_1.permute(2, 0, 1), img_2.permute(2, 0, 1)))
+        pos = self.latents[item:item + self.seq_len]
+        target = self.targets[item:item + self.seq_len - 1]
+
+        if self.single_image:
+            img_pair = img_pair[0]
+            pos = pos[0]
+        else:
+            returns += [target]
+        img_pair = self._prepare_imgs(img_pair)
+        returns = [img_pair] + returns
+
+        if self.return_latents:
+            returns += [pos]
+
+        return tuple(returns) if len(returns) > 1 else returns[0]
+
+
+class ChambersSemiSynthDataset(ChambersDataset):
+    def __init__(self, transform, **kwargs):
+        super().__init__(**kwargs)
+
+        self.transform = transform
+
+    def __getitem__(self, item):
+        pass
 
 
 class InterventionalPongDataset(data.Dataset):

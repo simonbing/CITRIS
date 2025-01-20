@@ -14,8 +14,8 @@ from copy import copy
 
 import sys
 sys.path.append('../')
-from crc.baselines.citris.experiments.datasets import BallInBoxesDataset, \
-    InterventionalPongDataset, Causal3DDataset, VoronoiDataset, PinballDataset
+from crc.baselines.citris.experiments.datasets import InterventionalPongDataset, ChambersDataset, ChambersSemiSynthDataset
+from crc.utils.chamber_sim.simulators.lt.image import DecoderSimple
 
 def get_device():
     return torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
@@ -44,51 +44,90 @@ def get_default_parser():
     parser.add_argument('--files_to_save', type=str, nargs='+', default='')
     return parser
 
-def load_datasets(seed, data_dir, seq_len, batch_size, num_workers, args=None,
+
+def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers, args=None,
                   exclude_objects=None):
     pl.seed_everything(seed)
     print('Loading datasets...')
-    if 'ball_in_boxes' in data_dir:
-        data_name = 'ballinboxes'
-        DataClass = BallInBoxesDataset
-        dataset_args = {}
-        test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
-    elif 'pong' in data_dir:
-        data_name = 'pong'
-        DataClass = InterventionalPongDataset
-        dataset_args = {}
-        test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
-    elif 'causal3d' in data_dir:
-        data_name = 'causal3d'
-        DataClass = Causal3DDataset
-        dataset_args = {'coarse_vars': args.coarse_vars, 'exclude_vars': args.exclude_vars, 'exclude_objects': args.exclude_objects}
-        test_args = lambda train_set: {'causal_vars': train_set.full_target_names}
-    elif 'voronoi' in data_dir:
-        extra_name = data_dir.split('voronoi')[-1]
-        if extra_name[-1] == '/':
-            extra_name = extra_name[:-1]
-        extra_name = extra_name.replace('/', '_')
-        data_name = 'voronoi' + extra_name
-        DataClass = VoronoiDataset
-        dataset_args = {}
-        test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
-    elif 'pinball' in data_dir:
-        data_name = 'pinball' + data_dir.split('pinball')[-1].replace('/','')
-        DataClass = PinballDataset
-        dataset_args = {}
-        test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
-    else:
-        assert False, f'Unknown data class for {data_dir}'
-    train_dataset = DataClass(
-        data_folder=data_dir, split='train', single_image=False, triplet=False, seq_len=seq_len, **dataset_args)
-    val_dataset = DataClass(
-        data_folder=data_dir, split='val_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
-    val_triplet_dataset = DataClass(
-        data_folder=data_dir, split='val', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
-    test_dataset = DataClass(
-        data_folder=data_dir, split='test_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
-    test_triplet_dataset = DataClass(
-        data_folder=data_dir, split='test', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
+    match dataset_name:
+        case 'chambers':
+            data_name = dataset_name
+            train_dataset = ChambersDataset(dataset='lt_camera_v1',
+                                            data_root=data_dir)
+            val_dataset = ChambersDataset(dataset='lt_camera_v1',
+                                          data_root=data_dir)
+            test_dataset = ChambersDataset(dataset='lt_camera_v1',
+                                           data_root=data_dir)
+            val_dataset_indep = ChambersDataset(dataset='lt_camera_v1',
+                                                data_root=data_dir,
+                                                single_image=True,
+                                                return_latents=True)
+            test_dataset_indep = ChambersDataset(dataset='lt_camera_v1',
+                                                 data_root=data_dir,
+                                                 single_image=True,
+                                                 return_latents=True)
+            dataset_args = {}
+
+
+            # TODO: get 'regular' val and test dataset by splitting the big dataset and load the independent ones for callbacks from different sets
+            val_triplet_dataset = None
+            test_triplet_dataset = None
+        case 'chambers_semi_synth_decoder':
+            data_name = dataset_name
+            decoder_simu = DecoderSimple()
+            transform = decoder_simu.simulate_from_inputs
+            train_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+                                                     data_root=data_dir,
+                                                     transform=transform)
+            dataset_args = {}
+            test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
+
+            val_dataset = None
+            val_triplet_dataset = None
+            test_dataset = None
+            test_triplet_dataset = None
+        case _:
+            if 'ball_in_boxes' in data_dir:
+                data_name = 'ballinboxes'
+                DataClass = BallInBoxesDataset
+                dataset_args = {}
+                test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
+            elif 'pong' in data_dir:
+                data_name = 'pong'
+                DataClass = InterventionalPongDataset
+                dataset_args = {}
+                test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
+            elif 'causal3d' in data_dir:
+                data_name = 'causal3d'
+                DataClass = Causal3DDataset
+                dataset_args = {'coarse_vars': args.coarse_vars, 'exclude_vars': args.exclude_vars, 'exclude_objects': args.exclude_objects}
+                test_args = lambda train_set: {'causal_vars': train_set.full_target_names}
+            elif 'voronoi' in data_dir:
+                extra_name = data_dir.split('voronoi')[-1]
+                if extra_name[-1] == '/':
+                    extra_name = extra_name[:-1]
+                extra_name = extra_name.replace('/', '_')
+                data_name = 'voronoi' + extra_name
+                DataClass = VoronoiDataset
+                dataset_args = {}
+                test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
+            elif 'pinball' in data_dir:
+                data_name = 'pinball' + data_dir.split('pinball')[-1].replace('/','')
+                DataClass = PinballDataset
+                dataset_args = {}
+                test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
+            else:
+                assert False, f'Unknown data class for {data_dir}'
+            train_dataset = DataClass(
+                data_folder=data_dir, split='train', single_image=False, triplet=False, seq_len=seq_len, **dataset_args)
+            val_dataset = DataClass(
+                data_folder=data_dir, split='val_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
+            val_triplet_dataset = DataClass(
+                data_folder=data_dir, split='val', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
+            test_dataset = DataClass(
+                data_folder=data_dir, split='test_indep', single_image=True, triplet=False, return_latents=True, **dataset_args, **test_args(train_dataset))
+            test_triplet_dataset = DataClass(
+                data_folder=data_dir, split='test', single_image=False, triplet=True, return_latents=True, **dataset_args, **test_args(train_dataset))
     if exclude_objects is not None and data_name == 'causal3d':
         test_dataset = {
             'orig_wo_' + '_'.join([str(o) for o in exclude_objects]): test_dataset
@@ -110,30 +149,53 @@ def load_datasets(seed, data_dir, seq_len, batch_size, num_workers, args=None,
                                   shuffle=False, drop_last=False, num_workers=num_workers)
 
     print(f'Training dataset size: {len(train_dataset)} / {len(train_loader)}')
-    print(f'Val triplet dataset size: {len(val_triplet_dataset)} / {len(val_triplet_loader)}')
+    # print(f'Val triplet dataset size: {len(val_triplet_dataset)} / {len(val_triplet_loader)}')
     if isinstance(val_dataset, dict):
         print(f'Val correlation dataset sizes: { {key: len(val_dataset[key]) for key in val_dataset} }')
     else:
         print(f'Val correlation dataset size: {len(val_dataset)}')
-    print(f'Test triplet dataset size: {len(test_triplet_dataset)} / {len(test_triplet_loader)}')
+    # print(f'Test triplet dataset size: {len(test_triplet_dataset)} / {len(test_triplet_loader)}')
     if isinstance(test_dataset, dict):
         print(f'Test correlation dataset sizes: { {key: len(test_dataset[key]) for key in test_dataset} }')
     else:
         print(f'Test correlation dataset size: {len(test_dataset)}')
 
-    datasets = {
-        'train': train_dataset,
-        'val': val_dataset,
-        'val_triplet': val_triplet_dataset,
-        'test': test_dataset,
-        'test_triplet': test_triplet_dataset
-    }
-    data_loaders = {
-        'train': train_loader,
-        'val_triplet': val_triplet_loader,
-        'test_triplet': test_triplet_loader
-    }
+    if dataset_name in ('chambers', 'chambers_semi_synth_decoder'):
+        datasets = {
+            'train': train_dataset,
+            'val': val_dataset_indep,
+            'test': test_dataset_indep,
+            'val_triplet': val_triplet_dataset,
+            'test_triplet': test_triplet_dataset
+        }
+    else:
+        datasets = {
+            'train': train_dataset,
+            'val': val_dataset,
+            'val_triplet': val_triplet_dataset,
+            'test': test_dataset,
+            'test_triplet': test_triplet_dataset
+        }
+    if dataset_name in ('chambers', 'chambers_semi_synth_decoder'):
+        val_loader = data.DataLoader(val_dataset, batch_size=batch_size,
+                                     shuffle=False, drop_last=False,
+                                     num_workers=num_workers)
+        test_loader = data.DataLoader(test_dataset, batch_size=batch_size,
+                                      shuffle=False, drop_last=False,
+                                      num_workers=num_workers)
+        data_loaders = {
+            'train': train_loader,
+            'val': val_loader,
+            'test': test_loader
+        }
+    else:
+        data_loaders = {
+            'train': train_loader,
+            'val_triplet': val_triplet_loader,
+            'test_triplet': test_triplet_loader
+        }
     return datasets, data_loaders, data_name
+
 
 def print_params(logger_name, model_args):
     num_chars = max(50, 11+len(logger_name))
@@ -143,6 +205,7 @@ def print_params(logger_name, model_args):
     for key in sorted(list(model_args.keys())):
         print(f'-> {key}: {model_args[key]}')
     print('=' * num_chars)
+
 
 def train_model(model_class, train_loader, val_loader, 
                 test_loader=None,
