@@ -8,6 +8,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 import numpy as np
 import os
 from collections import OrderedDict, defaultdict
+import wandb
 
 import sys
 sys.path.append('../')
@@ -342,6 +343,7 @@ class CITRISVAE(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         loss = self._get_loss(batch, mode='train')
         self.log('train_loss', loss)
+        wandb.log({'train_loss': loss})
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -351,6 +353,7 @@ class CITRISVAE(pl.LightningModule):
         # Using same loss as training for chambers
         loss = self._get_loss(batch, mode='val')
         self.log('val_loss', loss)
+        wandb.log({'val_loss': loss})
 
     def test_step(self, batch, batch_idx):
         # imgs, *_ = batch
