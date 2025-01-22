@@ -1,7 +1,7 @@
 """
 PyTorch dataset classes for loading the datasets.
 """
-
+import pandas as pd
 from causalchamber.datasets import Dataset as ChamberData
 from skimage import io
 import torch
@@ -20,7 +20,7 @@ class ChambersDataset(data.Dataset):
         'red': 'continuous_1',
         'green': 'continuous_1',
         'blue': 'continuous_1',
-        'pol_1': 'continuous_1',  # TODO: check if the polarizers should be classified as angles! Probably also need to rescale them to [0, 2pi] then!
+        'pol_1': 'continuous_1',
         'pol_2': 'continuous_1'
     })
 
@@ -44,39 +44,19 @@ class ChambersDataset(data.Dataset):
         latents = self.data_df[self.features].to_numpy()
         latents = (latents - np.mean(latents, axis=0, keepdims=True)) / np.std(latents, axis=0, keepdims=True)
         self.latents = torch.as_tensor(latents, dtype=torch.float32)
-        self.targets = np.zeros(shape=(len(self.data_df), 5))  # Intervention targets, TODO: actually get the real ones!
+        targets_idx = self.data_df['flag'].to_numpy(dtype=int)
+        targets_one_hot = np.zeros((len(targets_idx), targets_idx.max()),
+                                   dtype=int)
+        for i, target_idx in enumerate(targets_idx):
+            if target_idx != 0:
+                targets_one_hot[i, target_idx - 1] = 1
+        self.targets = targets_one_hot
         self.target_names_l = ['red', 'green', 'blue', 'pol_1', 'pol_2']
 
         self.single_image = single_image
         self.return_latents = return_latents
         self.seq_len = seq_len if not (single_image or self.triplet) else 1
         self.encodings_active = False
-
-    @torch.no_grad()
-    def encode_dataset(self, encoder, batch_size=512):
-        device = torch.device(
-            'cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-        encoder.eval()
-        encoder.to(device)
-        encodings = None
-        for idx in tqdm(range(0, len(self.data_df), batch_size), desc='Encoding dataset...', leave=False):
-            # batch = self.imgs[idx:idx+batch_size].to(device)
-            # Load batch_size number of images
-            batch = None
-            batch = self._prepare_imgs(batch)
-            if len(batch.shape) == 5:
-                batch = batch.flatten(0, 1)
-            batch = encoder(batch)
-            if len(self.imgs.shape) == 5:
-                batch = batch.unflatten(0, (-1, self.imgs.shape[1]))
-            batch = batch.detach().cpu()
-            if encodings is None:
-                encodings = torch.zeros(len(self.data_df) + batch.shape[-1:], dtype=batch.dtype, device='cpu')
-            encodings[idx:idx + batch_size] = batch
-            self.imgs = encodings
-            self.encodings_active = True
-            raise ArithmeticError  # TODO: hook to see if we actually need this somewhere!!
-            return encodings
 
     def _prepare_imgs(self, imgs):
         if self.encodings_active:
@@ -133,13 +113,64 @@ class ChambersDataset(data.Dataset):
 
 
 class ChambersSemiSynthDataset(ChambersDataset):
-    def __init__(self, transform, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, transform, dataset, data_root, single_image=False, seq_len=2, return_latents=False):
+        # super().__init__(dataset, data_root, single_image, seq_len, return_latents)  # Uncomment when using the regular chambers dataframe
+
+        try:
+            for p in transform.parameters():
+                p.requires_grad = False
+        except AttributeError:
+            pass
 
         self.transform = transform
 
+        self.triplet = False
+
+        data_path = os.path.join(data_root, 'citris_1.txt')
+        self.data_df = pd.read_csv(data_path, sep=',')[:1000]  # TODO: use whole dataset!
+        self.features = ['red', 'green', 'blue', 'pol_1', 'pol_2']
+
+        latents = self.data_df[self.features].to_numpy()
+        latents = (latents - np.mean(latents, axis=0, keepdims=True)) / np.std(
+            latents, axis=0, keepdims=True)
+        self.latents = torch.as_tensor(latents, dtype=torch.float32)
+        targets_idx = self.data_df['flag'].to_numpy(dtype=int)
+        targets_one_hot = np.zeros((len(targets_idx), targets_idx.max()), dtype=int)
+        for i, target_idx in enumerate(targets_idx):
+            if target_idx != 0:
+                targets_one_hot[i, target_idx-1] = 1
+        self.targets = targets_one_hot
+        self.target_names_l = ['red', 'green', 'blue', 'pol_1', 'pol_2']
+
+        self.single_image = single_image
+        self.return_latents = return_latents
+        self.seq_len = seq_len if not (single_image or self.triplet) else 1
+        self.encodings_active = False
+
     def __getitem__(self, item):
-        pass
+        returns = []
+
+        img_1 = self.transform(self.data_df[self.features].iloc[item].to_frame().T).squeeze()
+        img_1 = torch.as_tensor(img_1, dtype=torch.float32)
+        img_2 = self.transform(self.data_df[self.features].iloc[item+1].to_frame().T).squeeze()
+        img_2 = torch.as_tensor(img_2, dtype=torch.float32)
+
+        img_pair = torch.stack((img_1.permute(2, 0, 1), img_2.permute(2, 0, 1)))
+        pos = self.latents[item:item + self.seq_len]
+        target = self.targets[item:item + self.seq_len - 1]
+
+        if self.single_image:
+            img_pair = img_pair[0]
+            pos = pos[0]
+        else:
+            returns += [target]
+        img_pair = self._prepare_imgs(img_pair)
+        returns = [img_pair] + returns
+
+        if self.return_latents:
+            returns += [pos]
+
+        return tuple(returns) if len(returns) > 1 else returns[0]
 
 
 class InterventionalPongDataset(data.Dataset):

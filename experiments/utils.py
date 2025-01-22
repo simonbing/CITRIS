@@ -79,12 +79,26 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
             train_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
                                                      data_root=data_dir,
                                                      transform=transform)
-            dataset_args = {}
-            test_args = lambda train_set: {'causal_vars': train_set.target_names_l}
+            val_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+                                                   data_root=data_dir,
+                                                   transform=transform)
+            test_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+                                                    data_root=data_dir,
+                                                    transform=transform)
+            val_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+                                                         data_root=data_dir,
+                                                         single_image=True,
+                                                         return_latents=True,
+                                                         transform=transform)
+            test_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+                                                          data_root=data_dir,
+                                                          single_image=True,
+                                                          return_latents=True,
+                                                          transform=transform)
 
-            val_dataset = None
+            dataset_args = {}
+
             val_triplet_dataset = None
-            test_dataset = None
             test_triplet_dataset = None
         case _:
             if 'ball_in_boxes' in data_dir:
