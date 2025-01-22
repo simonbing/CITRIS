@@ -71,7 +71,10 @@ def plot_target_assignment(prior, dataset=None):
     target_probs = prior.get_target_assignment().detach().cpu().numpy()
     fig = plt.figure(figsize=(max(6, target_probs.shape[1]), max(6, target_probs.shape[0]/2.5)))
     if dataset is not None:
-        target_names = dataset.target_names()
+        try:
+            target_names = dataset.target_names()
+        except AttributeError:
+            target_names = dataset.dataset.target_names()
         if len(target_names) == target_probs.shape[1]-1:
             target_names = target_names + ['No variable']
     else:
