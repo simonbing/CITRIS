@@ -79,8 +79,8 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
             decoder_simu = DecoderSimple()
             transform = decoder_simu.simulate_from_inputs
             full_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
-                                                     data_root=data_dir,
-                                                     transform=transform)
+                                                    data_root=data_dir,
+                                                    transform=transform)
             train_frac = 0.8
             val_frac = 0.1
             test_frac = 0.1

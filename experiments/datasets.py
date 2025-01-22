@@ -166,7 +166,7 @@ class ChambersSemiSynthDataset(ChambersDataset):
 
         img_pair = torch.stack((img_1.permute(2, 0, 1), img_2.permute(2, 0, 1)))
         pos = self.latents[item:item + self.seq_len]
-        target = self.targets[item:item + self.seq_len - 1]
+        target = torch.as_tensor(self.targets[item:item + self.seq_len - 1], dtype=torch.int)
 
         if self.single_image:
             img_pair = img_pair[0]
