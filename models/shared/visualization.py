@@ -32,7 +32,12 @@ def visualize_reconstruction(model, image, label, dataset):
     reconst, *_ = model(image[None])
     reconst = reconst.squeeze(dim=0)
 
-    if dataset.num_labels() > 1:
+    try:
+        num_labels = dataset.num_labels()
+    except AttributeError:
+        num_labels = dataset.dataset.num_labels()
+
+    if num_labels > 1:
         soft_img = dataset.label_to_img(torch.softmax(reconst, dim=0))
         hard_img = dataset.label_to_img(torch.argmax(reconst, dim=0))
         if label.dtype == torch.long:
