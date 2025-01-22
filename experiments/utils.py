@@ -5,6 +5,8 @@ General training function with PyTorch Lightning
 import os
 import argparse
 import json
+
+import numpy as np
 import torch
 import torch.utils.data as data
 import pytorch_lightning as pl 
@@ -76,24 +78,40 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
             data_name = dataset_name
             decoder_simu = DecoderSimple()
             transform = decoder_simu.simulate_from_inputs
-            train_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+            full_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
                                                      data_root=data_dir,
                                                      transform=transform)
-            val_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
-                                                   data_root=data_dir,
-                                                   transform=transform)
-            test_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
-                                                    data_root=data_dir,
-                                                    transform=transform)
+            train_frac = 0.8
+            val_frac = 0.1
+            test_frac = 0.1
+
+            all_indxs = np.arange(len(full_dataset))
+            train_idxs = all_indxs[:int(len(all_indxs) * train_frac)]
+            val_idxs = all_indxs[len(train_idxs):len(train_idxs)+int(len(all_indxs) * val_frac)]
+            test_idxs = all_indxs[max(val_idxs)+1:]
+
+            train_dataset = data.Subset(full_dataset, train_idxs)
+            val_dataset = data.Subset(full_dataset, val_idxs)
+            test_dataset = data.Subset(full_dataset, test_idxs)
+
+            # val_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+            #                                        data_root=data_dir,
+            #                                        transform=transform)
+            # test_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+            #                                         data_root=data_dir,
+            #                                         transform=transform)
+
             val_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
                                                          data_root=data_dir,
                                                          single_image=True,
                                                          return_latents=True,
+                                                         mode='val',
                                                          transform=transform)
             test_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
                                                           data_root=data_dir,
                                                           single_image=True,
                                                           return_latents=True,
+                                                          mode='test',
                                                           transform=transform)
 
             dataset_args = {}

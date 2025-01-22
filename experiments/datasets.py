@@ -113,7 +113,8 @@ class ChambersDataset(data.Dataset):
 
 
 class ChambersSemiSynthDataset(ChambersDataset):
-    def __init__(self, transform, dataset, data_root, single_image=False, seq_len=2, return_latents=False):
+    def __init__(self, transform, dataset, data_root, single_image=False,
+                 seq_len=2, return_latents=False, mode='train'):
         # super().__init__(dataset, data_root, single_image, seq_len, return_latents)  # Uncomment when using the regular chambers dataframe
 
         try:
@@ -126,8 +127,16 @@ class ChambersSemiSynthDataset(ChambersDataset):
 
         self.triplet = False
 
-        data_path = os.path.join(data_root, 'citris_1.txt')
-        self.data_df = pd.read_csv(data_path, sep=',')[:1000]  # TODO: use whole dataset!
+        if mode == 'train':
+            data_path = os.path.join(data_root, 'citris_1.txt')
+            self.data_df = pd.read_csv(data_path, sep=',')[:50000]  # TODO: use whole dataset!
+        elif mode == 'val':
+            data_path = os.path.join(data_root, 'citris_test.txt')
+            self.data_df = pd.read_csv(data_path, sep=',')[:1000]
+        elif mode == 'test':
+            data_path = os.path.join(data_root, 'citris_test.txt')
+            self.data_df = pd.read_csv(data_path, sep=',')[1000:]
+
         self.features = ['red', 'green', 'blue', 'pol_1', 'pol_2']
 
         latents = self.data_df[self.features].to_numpy()
