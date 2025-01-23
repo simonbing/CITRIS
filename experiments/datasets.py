@@ -72,6 +72,9 @@ class ChambersDataset(data.Dataset):
     def num_vars(self):
         return self.targets.shape[-1]
 
+    def num_labels(self):
+        return -1
+
     def get_inp_channels(self):
         return 3
 
