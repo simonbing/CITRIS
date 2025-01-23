@@ -67,10 +67,10 @@ class ImageLogCallback(pl.Callback):
             for i in range(min(4, images.shape[0])):
                 log_fig(f'reconstruction_{i}', visualize_reconstruction(trainer.model, images[i], labels[i], self.dataset))
             
-            if hasattr(trainer.model, 'prior_t1'):
-                if full_imgs is not None:
-                    for i in range(min(4, full_imgs.shape[0])):
-                        log_fig(f'triplet_visualization_{i}', visualize_triplet_reconstruction(trainer.model, full_imgs[i], full_labels[i], [e[i] for e in self.extra_inputs], dataset=self.dataset))
+            # if hasattr(trainer.model, 'prior_t1'):
+            #     if full_imgs is not None:
+            #         for i in range(min(4, full_imgs.shape[0])):
+            #             log_fig(f'triplet_visualization_{i}', visualize_triplet_reconstruction(trainer.model, full_imgs[i], full_labels[i], [e[i] for e in self.extra_inputs], dataset=self.dataset))
             trainer.model.train()
 
 
