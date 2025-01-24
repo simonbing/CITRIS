@@ -174,6 +174,9 @@ class ChambersSemiSynthDataset(ChambersDataset):
         if self.single_image:
             img_pair = img_pair[0]
             pos = pos[0]
+            ### DEBUG
+            # return tuple([torch.asarray(self.data_df[self.features].iloc[item].to_numpy(), dtype=torch.float32)] + [pos])
+            # return tuple([pos] + [pos])
         else:
             returns += [target]
         img_pair = self._prepare_imgs(img_pair)
