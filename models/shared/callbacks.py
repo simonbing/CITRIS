@@ -147,6 +147,8 @@ class CorrelationMetricsLogCallback(pl.Callback):
         for batch in loader:
             inps, *_, latents = batch
             encs = pl_module.encode(inps.to(pl_module.device)).cpu()
+            # DEBUG: pass the ground truth vector here explicitly for debugging
+            # encs = inps
             all_encs.append(encs)
             all_latents.append(latents)
         all_encs = torch.cat(all_encs, dim=0)
@@ -163,6 +165,12 @@ class CorrelationMetricsLogCallback(pl.Callback):
         # Train network to predict causal factors from latent variables
         if hasattr(pl_module, 'prior_t1'):
             target_assignment = pl_module.prior_t1.get_target_assignment(hard=True)
+            ### DEBUG
+            # target_assignment = torch.as_tensor([[1, 0, 0, 0, 0, 0],
+            #                                      [0, 1, 0, 0, 0, 0],
+            #                                      [0, 0, 1, 0, 0, 0],
+            #                                      [0, 0, 0, 1, 0, 0],
+            #                                      [0, 0, 0, 0, 1, 0]], dtype=torch.int64)
         elif hasattr(pl_module, 'target_assignment') and pl_module.target_assignment is not None:
             target_assignment = pl_module.target_assignment.clone()
         else:
@@ -183,6 +191,7 @@ class CorrelationMetricsLogCallback(pl.Callback):
             pl_module = pl_module.train()
         return r2_matrix
 
+    @torch.inference_mode(False)
     def train_network(self, pl_module, train_dataset, target_assignment):
         device = pl_module.device
         # if hasattr(pl_module, 'causal_encoder'):
@@ -222,11 +231,12 @@ class CorrelationMetricsLogCallback(pl.Callback):
                     inps, latents = self._prepare_input(inps, target_assignment, latents)
                     loss = encoder._get_loss([inps, latents], mode=None)
                     optimizer.zero_grad()
-                    try:
-                        loss.backward()
-                    except RuntimeError:
-                        loss.requires_grad = True
-                        loss.backward()
+                    # try:
+                    #     loss.backward()
+                    # except RuntimeError:
+                    #     loss.requires_grad = True
+                    #     loss.backward()
+                    loss.backward()
                     optimizer.step()
                     avg_loss += loss.item()
         return encoder

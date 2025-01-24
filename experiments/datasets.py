@@ -147,7 +147,7 @@ class ChambersSemiSynthDataset(ChambersDataset):
             latents, axis=0, keepdims=True)
         self.latents = torch.as_tensor(latents, dtype=torch.float32)
         targets_idx = self.data_df['flag'].to_numpy(dtype=int)
-        targets_one_hot = np.zeros((len(targets_idx), targets_idx.max()), dtype=int)
+        targets_one_hot = np.zeros((len(targets_idx), 5), dtype=int)
         for i, target_idx in enumerate(targets_idx):
             if target_idx != 0:
                 targets_one_hot[i, target_idx-1] = 1
