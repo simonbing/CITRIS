@@ -146,9 +146,9 @@ class CorrelationMetricsLogCallback(pl.Callback):
         all_encs, all_latents = [], []
         for batch in loader:
             inps, *_, latents = batch
-            encs = pl_module.encode(inps.to(pl_module.device)).cpu()
+            # encs = pl_module.encode(inps.to(pl_module.device)).cpu()
             # DEBUG: pass the ground truth vector here explicitly for debugging
-            # encs = inps
+            encs = inps
             all_encs.append(encs)
             all_latents.append(latents)
         all_encs = torch.cat(all_encs, dim=0)
@@ -166,11 +166,11 @@ class CorrelationMetricsLogCallback(pl.Callback):
         if hasattr(pl_module, 'prior_t1'):
             target_assignment = pl_module.prior_t1.get_target_assignment(hard=True)
             ### DEBUG
-            # target_assignment = torch.as_tensor([[1, 0, 0, 0, 0, 0],
-            #                                      [0, 1, 0, 0, 0, 0],
-            #                                      [0, 0, 1, 0, 0, 0],
-            #                                      [0, 0, 0, 1, 0, 0],
-            #                                      [0, 0, 0, 0, 1, 0]], dtype=torch.int64)
+            target_assignment = torch.as_tensor([[1, 0, 0, 0, 0, 0],
+                                                 [0, 1, 0, 0, 0, 0],
+                                                 [0, 0, 1, 0, 0, 0],
+                                                 [0, 0, 0, 1, 0, 0],
+                                                 [0, 0, 0, 0, 1, 0]], dtype=torch.int64)
         elif hasattr(pl_module, 'target_assignment') and pl_module.target_assignment is not None:
             target_assignment = pl_module.target_assignment.clone()
         else:
@@ -189,6 +189,10 @@ class CorrelationMetricsLogCallback(pl.Callback):
         self.log_Spearman_statistics(trainer, encoder, pred_dict, test_labels, pl_module=pl_module)
         if is_training:
             pl_module = pl_module.train()
+
+        np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
+        print(f"{'val' if self.log_postfix == '' else 'test'} r2: \n {r2_matrix}")
+
         return r2_matrix
 
     @torch.inference_mode(False)

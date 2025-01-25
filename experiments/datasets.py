@@ -132,7 +132,7 @@ class ChambersSemiSynthDataset(ChambersDataset):
 
         if mode == 'train':
             data_path = os.path.join(data_root, 'citris_1.txt')
-            self.data_df = pd.read_csv(data_path, sep=',')[:50000]  # TODO: use whole dataset!
+            self.data_df = pd.read_csv(data_path, sep=',')[:5000]  # TODO: use whole dataset!
         elif mode == 'val':
             data_path = os.path.join(data_root, 'citris_test.txt')
             self.data_df = pd.read_csv(data_path, sep=',')[:1000]
@@ -174,8 +174,8 @@ class ChambersSemiSynthDataset(ChambersDataset):
         if self.single_image:
             img_pair = img_pair[0]
             pos = pos[0]
-            ### DEBUG
-            # return tuple([torch.asarray(self.data_df[self.features].iloc[item].to_numpy(), dtype=torch.float32)] + [pos])
+            ## DEBUG
+            return tuple([torch.asarray(self.data_df[self.features].iloc[item].to_numpy(), dtype=torch.float32)] + [pos])
             # return tuple([pos] + [pos])
         else:
             returns += [target]
