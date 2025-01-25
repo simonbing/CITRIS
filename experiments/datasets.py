@@ -163,13 +163,13 @@ class ChambersSemiSynthDataset(ChambersDataset):
         returns = []
 
         img_1 = self.transform(self.data_df[self.features].iloc[item].to_frame().T).squeeze()
-        img_1 = torch.as_tensor(img_1, dtype=torch.float32)
+        img_1 = torch.as_tensor(img_1 * 255., dtype=torch.float32)
         img_2 = self.transform(self.data_df[self.features].iloc[item+1].to_frame().T).squeeze()
-        img_2 = torch.as_tensor(img_2, dtype=torch.float32)
+        img_2 = torch.as_tensor(img_2 * 255., dtype=torch.float32)
 
         img_pair = torch.stack((img_1.permute(2, 0, 1), img_2.permute(2, 0, 1)))
         pos = self.latents[item:item + self.seq_len]
-        target = torch.as_tensor(self.targets[item:item + self.seq_len - 1], dtype=torch.int)
+        target = torch.as_tensor(self.targets[item:item + self.seq_len - 1], dtype=torch.float32)
 
         if self.single_image:
             img_pair = img_1.permute(2, 0, 1)
