@@ -24,7 +24,8 @@ class ChambersDataset(data.Dataset):
         'pol_2': 'continuous_1'
     })
 
-    def __init__(self, dataset, data_root, single_image=False, seq_len=2, return_latents=False):
+    def __init__(self, dataset, data_root, single_image=False, seq_len=2,
+                 return_latents=False, mode='train'):
         super().__init__()
 
         self.triplet = False  # not used in this dataset
@@ -33,20 +34,29 @@ class ChambersDataset(data.Dataset):
                                    root=data_root,
                                    download=True)
 
-        ### Dummy dataset atm, make sure to use the correct one later!
-        self.data_df = chamber_data.get_experiment(
-            name='scm_2_reference').as_pandas_dataframe()[:1000]  # TODO: use whole dataset!
+        if mode == 'train':
+            self.data_df = chamber_data.get_experiment(
+                name='citris_1').as_pandas_dataframe()
+            self.base_img_path = os.path.join(data_root, dataset, 'citris_1',
+                                              'images_64')
+        elif mode == 'val':
+            self.data_df = chamber_data.get_experiment(
+                name='uniform').as_pandas_dataframe()[:1000]
+            self.base_img_path = os.path.join(data_root, dataset, 'uniform',
+                                              'images_64')
+        elif mode == 'test':
+            self.data_df = chamber_data.get_experiment(
+                name='uniform').as_pandas_dataframe()[1000:]
+            self.base_img_path = os.path.join(data_root, dataset, 'uniform',
+                                              'images_64')
 
-        self.base_img_path = os.path.join(data_root, dataset, 'scm_2_reference',
-                                          'images_64')
         self.features = ['red', 'green', 'blue', 'pol_1', 'pol_2']
 
         latents = self.data_df[self.features].to_numpy()
         latents = (latents - np.mean(latents, axis=0, keepdims=True)) / np.std(latents, axis=0, keepdims=True)
         self.latents = torch.as_tensor(latents, dtype=torch.float32)
         targets_idx = self.data_df['flag'].to_numpy(dtype=int)
-        targets_one_hot = np.zeros((len(targets_idx), targets_idx.max()),
-                                   dtype=int)
+        targets_one_hot = np.zeros((len(targets_idx), 5), dtype=int)
         for i, target_idx in enumerate(targets_idx):
             if target_idx != 0:
                 targets_one_hot[i, target_idx - 1] = 1
@@ -99,11 +109,11 @@ class ChambersDataset(data.Dataset):
 
         img_pair = torch.stack((img_1.permute(2, 0, 1), img_2.permute(2, 0, 1)))
         pos = self.latents[item:item + self.seq_len]
-        target = self.targets[item:item + self.seq_len - 1]
+        target = torch.as_tensor(self.targets[item:item + self.seq_len - 1], dtype=torch.float32)
 
         if self.single_image:
-            img_pair = img_pair[0]
-            pos = pos[0]
+            img_pair = img_1.permute(2, 0, 1)
+            pos = self.latents[item]
         else:
             returns += [target]
         img_pair = self._prepare_imgs(img_pair)

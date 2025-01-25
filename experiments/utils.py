@@ -54,31 +54,42 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
     match dataset_name:
         case 'chambers':
             data_name = dataset_name
-            train_dataset = ChambersDataset(dataset='lt_camera_v1',
-                                            data_root=data_dir)
-            val_dataset = ChambersDataset(dataset='lt_camera_v1',
-                                          data_root=data_dir)
-            test_dataset = ChambersDataset(dataset='lt_camera_v1',
+            full_dataset = ChambersDataset(dataset='lt_crl_benchmark_v1',
                                            data_root=data_dir)
-            val_dataset_indep = ChambersDataset(dataset='lt_camera_v1',
+
+            train_frac = 0.8
+            val_frac = 0.1
+            test_frac = 0.1
+
+            all_indxs = np.arange(len(full_dataset))
+            train_idxs = all_indxs[:int(len(all_indxs) * train_frac)]
+            val_idxs = all_indxs[len(train_idxs):len(train_idxs) + int(
+                len(all_indxs) * val_frac)]
+            test_idxs = all_indxs[max(val_idxs) + 1:]
+
+            train_dataset = data.Subset(full_dataset, train_idxs)
+            val_dataset = data.Subset(full_dataset, val_idxs)
+            test_dataset = data.Subset(full_dataset, test_idxs)
+
+            val_dataset_indep = ChambersDataset(dataset='lt_crl_benchmark_v1',
                                                 data_root=data_dir,
                                                 single_image=True,
-                                                return_latents=True)
-            test_dataset_indep = ChambersDataset(dataset='lt_camera_v1',
+                                                return_latents=True,
+                                                mode='val')
+            test_dataset_indep = ChambersDataset(dataset='lt_crl_benchmark_v1',
                                                  data_root=data_dir,
                                                  single_image=True,
-                                                 return_latents=True)
-            dataset_args = {}
+                                                 return_latents=True,
+                                                 mode='test')
 
 
-            # TODO: get 'regular' val and test dataset by splitting the big dataset and load the independent ones for callbacks from different sets
             val_triplet_dataset = None
             test_triplet_dataset = None
         case 'chambers_semi_synth_decoder':
             data_name = dataset_name
             decoder_simu = DecoderSimple()
             transform = decoder_simu.simulate_from_inputs
-            full_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+            full_dataset = ChambersSemiSynthDataset(dataset='lt_crl_benchmark_v1',
                                                     data_root=data_dir,
                                                     transform=transform)
             train_frac = 0.8
@@ -204,9 +215,11 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
         datasets = {
             'train': train_dataset,
             'val': val_dataset,
-            'val_triplet': val_triplet_dataset,
+            # 'val_triplet': val_triplet_dataset,
+            'val_triplet': train_dataset,
             'test': test_dataset,
-            'test_triplet': test_triplet_dataset
+            # 'test_triplet': test_triplet_dataset,
+            'test_triplet': train_dataset
         }
     if dataset_name in ('chambers', 'chambers_semi_synth_decoder'):
         val_loader = data.DataLoader(val_dataset, batch_size=batch_size,
@@ -223,8 +236,10 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
     else:
         data_loaders = {
             'train': train_loader,
-            'val_triplet': val_triplet_loader,
-            'test_triplet': test_triplet_loader
+            # 'val_triplet': val_triplet_loader,
+            'val_triplet': train_loader,
+            # 'test_triplet': test_triplet_loader,
+            'test_triplet': train_loader
         }
     return datasets, data_loaders, data_name
 
