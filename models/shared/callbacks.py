@@ -166,11 +166,11 @@ class CorrelationMetricsLogCallback(pl.Callback):
         if hasattr(pl_module, 'prior_t1'):
             target_assignment = pl_module.prior_t1.get_target_assignment(hard=True)
             ### DEBUG
-            target_assignment = torch.as_tensor([[1, 0, 0, 0, 0, 0],
-                                                 [0, 1, 0, 0, 0, 0],
-                                                 [0, 0, 1, 0, 0, 0],
-                                                 [0, 0, 0, 1, 0, 0],
-                                                 [0, 0, 0, 0, 1, 0]], dtype=torch.int64)
+            # target_assignment = torch.as_tensor([[1, 0, 0, 0, 0, 0],
+            #                                      [0, 1, 0, 0, 0, 0],
+            #                                      [0, 0, 1, 0, 0, 0],
+            #                                      [0, 0, 0, 1, 0, 0],
+            #                                      [0, 0, 0, 0, 1, 0]], dtype=torch.int64)
         elif hasattr(pl_module, 'target_assignment') and pl_module.target_assignment is not None:
             target_assignment = pl_module.target_assignment.clone()
         else:

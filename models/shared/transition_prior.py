@@ -144,7 +144,14 @@ class TransitionPrior(nn.Module):
         assert self.lambda_reg >= 0 and self.lambda_reg < 1.0, 'Lambda regularizer must be between 0 and 1, excluding 1.'
 
         # Gumbel Softmax parameters of psi. Note that we model psi(0) in the last dimension for simpler implementation
-        self.target_params = nn.Parameter(torch.zeros(num_latents, num_blocks + 1))
+        # self.target_params = nn.Parameter(torch.zeros(num_latents, num_blocks + 1))
+        ### DEBUG: hardcode target assignment, do not learn!
+        self.target_params = torch.as_tensor([[1, 0, 0, 0, 0, 0],
+                                                 [0, 1, 0, 0, 0, 0],
+                                                 [0, 0, 1, 0, 0, 0],
+                                                 [0, 0, 0, 1, 0, 0],
+                                                 [0, 0, 0, 0, 1, 0]], dtype=torch.float32)
+        ###
         if self.lambda_reg <= 0.0:  # No regularizer -> no reason to model psi(0)
             self.target_params.data[:,-1] = -9e15
 
