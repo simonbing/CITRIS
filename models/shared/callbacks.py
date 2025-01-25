@@ -146,9 +146,9 @@ class CorrelationMetricsLogCallback(pl.Callback):
         all_encs, all_latents = [], []
         for batch in loader:
             inps, *_, latents = batch
-            # encs = pl_module.encode(inps.to(pl_module.device)).cpu()
+            encs = pl_module.encode(inps.to(pl_module.device)).cpu()
             # DEBUG: pass the ground truth vector here explicitly for debugging
-            encs = inps
+            # encs = inps
             all_encs.append(encs)
             all_latents.append(latents)
         all_encs = torch.cat(all_encs, dim=0)
