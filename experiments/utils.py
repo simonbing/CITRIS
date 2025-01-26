@@ -94,7 +94,7 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
             #                                         transform=transform)
             full_dataset = ChambersDataset(dataset='lt_crl_benchmark_v1',
                                            data_root=data_dir,
-                                           exp_name='synth_det')
+                                           exp_name='_synth_det')
             train_frac = 0.8
             val_frac = 0.1
             test_frac = 0.1
