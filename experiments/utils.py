@@ -87,11 +87,14 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
             test_triplet_dataset = None
         case 'chambers_semi_synth_decoder':
             data_name = dataset_name
-            decoder_simu = DecoderSimple()
-            transform = decoder_simu.simulate_from_inputs
-            full_dataset = ChambersSemiSynthDataset(dataset='lt_crl_benchmark_v1',
-                                                    data_root=data_dir,
-                                                    transform=transform)
+            # decoder_simu = DecoderSimple()
+            # transform = decoder_simu.simulate_from_inputs
+            # full_dataset = ChambersSemiSynthDataset(dataset='lt_crl_benchmark_v1',
+            #                                         data_root=data_dir,
+            #                                         transform=transform)
+            full_dataset = ChambersDataset(dataset='lt_crl_benchmark_v1',
+                                           data_root=data_dir,
+                                           exp_name='synth_det')
             train_frac = 0.8
             val_frac = 0.1
             test_frac = 0.1

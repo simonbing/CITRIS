@@ -25,7 +25,7 @@ class ChambersDataset(data.Dataset):
     })
 
     def __init__(self, dataset, data_root, single_image=False, seq_len=2,
-                 return_latents=False, mode='train'):
+                 return_latents=False, mode='train', exp_name=''):
         super().__init__()
 
         self.triplet = False  # not used in this dataset
@@ -36,17 +36,17 @@ class ChambersDataset(data.Dataset):
 
         if mode == 'train':
             self.data_df = chamber_data.get_experiment(
-                name='citris_1').as_pandas_dataframe()
+                name='citris_1' + exp_name).as_pandas_dataframe()
             self.base_img_path = os.path.join(data_root, dataset, 'citris_1',
                                               'images_64')
         elif mode == 'val':
             self.data_df = chamber_data.get_experiment(
-                name='uniform').as_pandas_dataframe()[:1000]
+                name='uniform' + exp_name).as_pandas_dataframe()[:1000]
             self.base_img_path = os.path.join(data_root, dataset, 'uniform',
                                               'images_64')
         elif mode == 'test':
             self.data_df = chamber_data.get_experiment(
-                name='uniform').as_pandas_dataframe()[1000:]
+                name='uniform' + exp_name).as_pandas_dataframe()[1000:]
             self.base_img_path = os.path.join(data_root, dataset, 'uniform',
                                               'images_64')
 
