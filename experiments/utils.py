@@ -108,25 +108,31 @@ def load_datasets(seed, dataset_name, data_dir, seq_len, batch_size, num_workers
             val_dataset = data.Subset(full_dataset, val_idxs)
             test_dataset = data.Subset(full_dataset, test_idxs)
 
-            # val_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
-            #                                        data_root=data_dir,
-            #                                        transform=transform)
-            # test_dataset = ChambersSemiSynthDataset(dataset='lt_camera_v1',
-            #                                         data_root=data_dir,
-            #                                         transform=transform)
+            val_dataset_indep = ChambersDataset(dataset='lt_crl_benchmark_v1',
+                                                data_root=data_dir,
+                                                single_image=True,
+                                                return_latents=True,
+                                                mode='val',
+                                                exp_name='_synth_det')
+            test_dataset_indep = ChambersDataset(dataset='lt_crl_benchmark_v1',
+                                                 data_root=data_dir,
+                                                 single_image=True,
+                                                 return_latents=True,
+                                                 mode='test',
+                                                 exp_name='_synth_det')
 
-            val_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
-                                                         data_root=data_dir,
-                                                         single_image=True,
-                                                         return_latents=True,
-                                                         mode='val',
-                                                         transform=transform)
-            test_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
-                                                          data_root=data_dir,
-                                                          single_image=True,
-                                                          return_latents=True,
-                                                          mode='test',
-                                                          transform=transform)
+            # val_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+            #                                              data_root=data_dir,
+            #                                              single_image=True,
+            #                                              return_latents=True,
+            #                                              mode='val',
+            #                                              transform=transform)
+            # test_dataset_indep = ChambersSemiSynthDataset(dataset='lt_camera_v1',
+            #                                               data_root=data_dir,
+            #                                               single_image=True,
+            #                                               return_latents=True,
+            #                                               mode='test',
+            #                                               transform=transform)
 
             dataset_args = {}
 
