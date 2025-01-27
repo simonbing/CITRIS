@@ -142,7 +142,7 @@ class ChambersSemiSynthDataset(ChambersDataset):
 
         if mode == 'train':
             data_path = os.path.join(data_root, 'citris_1.txt')
-            self.data_df = pd.read_csv(data_path, sep=',')[:50000]  # TODO: use whole dataset!
+            self.data_df = pd.read_csv(data_path, sep=',')
         elif mode == 'val':
             data_path = os.path.join(data_root, 'citris_test.txt')
             self.data_df = pd.read_csv(data_path, sep=',')[:1000]
